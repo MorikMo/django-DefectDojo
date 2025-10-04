@@ -1,3 +1,12 @@
+name: Security Checks
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+  workflow_dispatch: {}
+
 jobs:
   gitleaks:
     name: Gitleaks (secrets)
@@ -33,12 +42,10 @@ jobs:
               .results |= (map(
                 .locations |= (map(
                   if (.physicalLocation.region? != null) then
-                    # заполнить отсутствующие значения
                     (.physicalLocation.region.startLine     |= (. // 1)) |
                     (.physicalLocation.region.startColumn   |= (. // 1)) |
                     (.physicalLocation.region.endLine       |= (. // .physicalLocation.region.startLine)) |
                     (.physicalLocation.region.endColumn     |= (. // .physicalLocation.region.startColumn)) |
-                    # выровнять endColumn, если меньше startColumn
                     (if (.physicalLocation.region.endColumn < .physicalLocation.region.startColumn)
                      then (.physicalLocation.region.endColumn = .physicalLocation.region.startColumn)
                      else . end)
