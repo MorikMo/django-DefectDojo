@@ -24,36 +24,48 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate TARGET_URL
+        run: |
+          if [ -z "${{ env.TARGET_URL }}" ]; then
+            echo "❌ ERROR: TARGET_URL secret is not set"
+            exit 0
+          fi
+          if [[ ! "${{ env.TARGET_URL }}" =~ ^http ]]; then
+            echo "❌ ERROR: TARGET_URL must start with http:// or https://"
+            exit 0
+          fi
+          echo "✅ Using TARGET_URL=${{ env.TARGET_URL }}"
 
+      # Запуск ZAP Baseline
       - name: Run ZAP Baseline
         run: |
-          docker run --rm -v $(pwd):/zap/wrk/:rw \
-            -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+          docker run --rm -v $(pwd):/zap/wrk/:rw -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
             -t ${{ env.TARGET_URL }} \
-            -j zap_report.json \
-            -r zap_report.html
+            -J report_json.json \
+            -r report_html.html || true
 
-      - name: Upload ZAP report artifacts
+      # Сохраняем отчёт
+      - name: Upload ZAP report artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: zap_reports
+          name: zap_baseline_report
           path: |
-            zap_report.json
-            zap_report.html
+            report_json.json
+            report_html.html
           if-no-files-found: ignore
 
+      # Загружаем в DefectDojo
       - name: Upload to DefectDojo (reimport → import)
         if: ${{ env.DD_URL != '' && env.DD_API_KEY != '' && env.DD_ENGAGEMENT_ID != '' }}
         run: |
-          set -e
-          test -f zap_report.json || { echo "ZAP JSON report not found, skip Dojo upload"; exit 0; }
+          test -f report_json.json || { echo "⚠️ ZAP report not found, skipping upload"; exit 0; }
 
           curl -sS -X POST "$DD_URL/api/v2/reimport-scan/" \
             -H "Authorization: Token $DD_API_KEY" \
             -F "engagement=$DD_ENGAGEMENT_ID" \
             -F "scan_type=ZAP Scan" \
-            -F "file=@zap_report.json" \
+            -F "file=@report_json.json" \
             -F "test_title=ZAP Baseline" \
             -F "build_id=$GITHUB_RUN_NUMBER" \
             -F "commit_hash=$GITHUB_SHA" \
@@ -63,7 +75,7 @@ jobs:
             -H "Authorization: Token $DD_API_KEY" \
             -F "engagement=$DD_ENGAGEMENT_ID" \
             -F "scan_type=ZAP Scan" \
-            -F "file=@zap_report.json" \
+            -F "file=@report_json.json" \
             -F "test_title=ZAP Baseline" \
             -F "build_id=$GITHUB_RUN_NUMBER" \
             -F "commit_hash=$GITHUB_SHA" \
