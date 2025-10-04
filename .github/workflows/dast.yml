@@ -2,7 +2,7 @@ name: DAST Scan
 
 on:
   push:
-    branches: [ "master" ]  
+    branches: ["master", "main"]
 
 jobs:
   zap-scan:
@@ -16,23 +16,21 @@ jobs:
         run: |
           docker run --rm -v $(pwd):/zap/wrk/:rw -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
             -t ${{ secrets.TARGET_URL }} \
-            -J report_json.json \
-            -r report_html.html || true
+            -r report_html.html \
+            -J report_json.json
 
       - name: Move reports into folder
         run: |
           mkdir -p reports
-          mv report_html.html reports/
+          mv report_html.html reports/index.html
           mv report_json.json reports/
 
       - name: Upload ZAP report artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@v4 
+        uses: actions/upload-pages-artifact@v3
         with:
-          path: ./reports
+          path: reports
 
   deploy:
-    name: Deploy ZAP Report
-    runs-on: ubuntu-latest
     needs: zap-scan
     permissions:
       pages: write
@@ -40,7 +38,8 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Deploy ZAP Report
         id: deployment
         uses: actions/deploy-pages@v4
