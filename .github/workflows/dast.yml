@@ -2,8 +2,7 @@ name: DAST Scan
 
 on:
   push:
-    branches:
-      - master
+    branches: [master]
   workflow_dispatch:
 
 jobs:
@@ -13,35 +12,23 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Run ZAP Baseline
+      - name: Run ZAP Baseline Scan
         run: |
-          docker run --rm -v $(pwd):/zap/wrk/:rw -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+          docker run --rm -v $(pwd):/zap/wrk:rw \
+            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
             -t http://85.193.90.138:8080 \
-            -r /zap/wrk/report_html.html \
-            -w /zap/wrk/report.md \
-            -J /zap/wrk/report.json
-            
-      - name: Prepare reports
-        run: |
-          mkdir -p reports
-          mv report_html.html reports/index.html
-          mv report_json.json reports/report.json
+            -r report_html.html \
+            -w report.md \
+            -J report.json
 
-      - name: Upload ZAP report artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@v3
+      - name: List generated reports
+        run: ls -la *.html *.md *.json
+
+      - name: Upload ZAP reports
+        uses: actions/upload-artifact@v4
         with:
-          path: reports
-
-  deploy:
-    needs: zap_scan
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy report to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          name: zap-security-reports
+          path: |
+            report_html.html
+            report.md
+            report.json
