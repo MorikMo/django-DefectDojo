@@ -16,7 +16,7 @@ jobs:
       - name: Run ZAP Baseline
         run: |
           docker run --rm -v $(pwd):/zap/wrk/:rw -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
-            -t ${{ secrets.TARGET_URL }} \
+            -t http://85.193.90.138:8080 \
             -r /zap/wrk/report_html.html \
             -J /zap/wrk/report_json.json
 
